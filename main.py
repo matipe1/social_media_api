@@ -40,6 +40,12 @@ def find_post(id):
     return -1
 
 
+def find_index_post(id):
+    for index, post in enumerate(my_fake_db):
+        if post['id'] == id:
+            return index
+
+
 # API
 @app.get('/')
 def greetings():
@@ -57,7 +63,8 @@ def create_posts(new_post: Post): # Specify the schema you want to receive into 
     post_dict['id'] = id
     my_fake_db.append(post_dict)
 
-    return {"data": "New post created"}
+    return {"msg": "New post created",
+            "data": Post(**post_dict)}
 
 
 @app.get('/posts')
@@ -80,3 +87,13 @@ def get_post(id: int):
 # def get_latest_post():
 #     post = my_fake_db[len(my_fake_db) - 1]
 #     return {"data": post}
+
+
+@app.delete('/posts/{id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(id: int):
+    index = find_index_post(id)
+    
+    if not index:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    my_fake_db.pop(index)
