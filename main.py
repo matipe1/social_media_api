@@ -93,7 +93,22 @@ def get_post(id: int):
 def delete_post(id: int):
     index = find_index_post(id)
     
-    if not index:
+    if index == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     
     my_fake_db.pop(index)
+
+
+@app.put('/posts/{id}', status_code=status.HTTP_200_OK)
+def update_post(id: int, post: Post):
+    index = find_index_post(id)
+
+    if index == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    dict_post = dict(post)
+    dict_post['id'] = id
+    my_fake_db[index] = dict_post
+
+    return {"msg": f"Post with id {id} updated",
+            "data": dict_post}
