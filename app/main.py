@@ -63,11 +63,6 @@ def get_posts():
     return {"data": posts}
 
 
-@app.get('/sqlalchemy')
-def test_get_posts(db: Session = Depends(get_db)):
-    return {"status": "success"}
-
-
 @app.get('/posts/{id}', status_code=status.HTTP_200_OK)
 def get_post(id: int):
     cursor.execute("""SELECT * from posts WHERE id = %s""", (str(id),))
