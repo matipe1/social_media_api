@@ -1,6 +1,14 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Response, Depends
 from pydantic import BaseModel
-from random import randrange
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import time
+from sqlalchemy.orm import Session
+from . import models
+from .database import engine, get_db
+
+
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -10,40 +18,21 @@ class Post(BaseModel):
     title: str
     content: str
     published: bool | None = False
-    rating: int | None = None
+    # rating: int | None = None
 
 
-# Database
-my_fake_db = [
-    {
-        "id": 1,
-        "title": "The power of Positive Thinking",
-        "content": "You have to read this amazing book",
-        "published": True,
-        "rating": 5
-    },
-    {
-        "id": 2,
-        "title": "Atomic Habits",
-        "content": "How tiny habits could change your life in the long term",
-        "published": False,
-        "rating": 5
-    }
-]
+while True:
+    try:
+        connection = psycopg2.connect(host='localhost', database='fastapi', user='postgres',
+                                      password='password123', cursor_factory=RealDictCursor)
+        cursor = connection.cursor()
+        print('Database connection was succesfull!')
+        break
 
-
-# Functions
-def find_post(id):
-    for post in my_fake_db:
-        if post['id'] == id:
-            return post
-    return -1
-
-
-def find_index_post(id):
-    for index, post in enumerate(my_fake_db):
-        if post['id'] == id:
-            return index
+    except Exception as error:
+        print('Connecting database failed')
+        print(f'Error: {error}')
+        time.sleep(2)
 
 
 # API
@@ -53,62 +42,65 @@ def greetings():
 
 
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_posts(new_post: Post): # Specify the schema you want to receive into a variable
+def create_posts(post: Post): # Specify the schema you want to receive into a variable
+    cursor.execute("""INSERT INTO posts (title, content, published) 
+                   VALUES (%s, %s, %s) RETURNING *; """, # This way to add the variables don't make you vulnerable to SQL Injection
+                   (post.title, post.content, post.published))
     
-    post_dict = dict(new_post)
-    id = randrange(0, 100000000)
+    new_post = cursor.fetchone()
 
-    while find_post(id) != -1:
-        id = randrange(0, 100000000)
-    post_dict['id'] = id
-    my_fake_db.append(post_dict)
+    connection.commit()
 
     return {"msg": "New post created",
-            "data": Post(**post_dict)}
+            "data": new_post}
 
 
 @app.get('/posts')
 def get_posts():
-    return {"data": my_fake_db}
+    cursor.execute("""SELECT * FROM posts; """)
+    posts = cursor.fetchall()
+
+    return {"data": posts}
+
+
+@app.get('/sqlalchemy')
+def test_get_posts(db: Session = Depends(get_db)):
+    return {"status": "success"}
 
 
 @app.get('/posts/{id}', status_code=status.HTTP_200_OK)
 def get_post(id: int):
+    cursor.execute("""SELECT * from posts WHERE id = %s""", (str(id),))
+    post = cursor.fetchone()
 
-    post = find_post(id)
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
     return {"data": post}
 
 
-# It's the reason because order matters -> API will consider this path as: /posts/{id}
-# @app.get('/posts/latest')
-# def get_latest_post():
-#     post = my_fake_db[len(my_fake_db) - 1]
-#     return {"data": post}
-
-
 @app.delete('/posts/{id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
-    index = find_index_post(id)
-    
-    if index == None:
+    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *; """, (str(id),))
+    deleted_post = cursor.fetchone()
+    connection.commit()
+
+    if deleted_post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     
-    my_fake_db.pop(index)
 
 
 @app.put('/posts/{id}', status_code=status.HTTP_200_OK)
 def update_post(id: int, post: Post):
-    index = find_index_post(id)
+    cursor.execute("""UPDATE posts SET title= %s, content= %s, published= %s WHERE id = %s RETURNING *; """,
+                   (post.title, post.content, post.published, str(id)))
+    updated_post = cursor.fetchone()
 
-    if index == None:
+    connection.commit()
+
+    if updated_post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     
-    dict_post = dict(post)
-    dict_post['id'] = id
-    my_fake_db[index] = dict_post
 
     return {"msg": f"Post with id {id} updated",
-            "data": dict_post}
+            "data": updated_post}
