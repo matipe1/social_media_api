@@ -1,24 +1,15 @@
 from fastapi import FastAPI, HTTPException, status, Response, Depends
-from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 from sqlalchemy.orm import Session
-from . import models
+from . import models, schemas
 from .database import engine, get_db
 
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-
-# Schema validation with Pydantic library (using BaseModel)
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool | None = False
-    # rating: int | None = None
 
 
 while True:
@@ -41,8 +32,8 @@ def greetings():
     return {"status": "API is running..."}
 
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_posts(post: Post, db: Session = Depends(get_db)):
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute("""INSERT INTO posts (title, content, published) 
     #                VALUES (%s, %s, %s) RETURNING *; """,
     #                (post.title, post.content, post.published))
@@ -55,8 +46,7 @@ def create_posts(post: Post, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_post)
 
-    return {"msg": "New post created",
-            "data": new_post}
+    return new_post
 
 
 @app.get('/posts')
@@ -65,7 +55,7 @@ def get_posts(db: Session = Depends(get_db)):
     # posts = cursor.fetchall()
 
     posts = db.query(models.Post).all()
-    return {"data": posts}
+    return posts
 
 
 
@@ -79,7 +69,7 @@ def get_post(id: int, db: Session = Depends(get_db)):
     if post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
-    return {"data": post}
+    return post
 
 
 @app.delete('/posts/{id}', status_code=status.HTTP_204_NO_CONTENT)
@@ -100,7 +90,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
 
 
 @app.put('/posts/{id}', status_code=status.HTTP_200_OK)
-def update_post(id: int, post: Post, db: Session = Depends(get_db)):
+def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute("""UPDATE posts SET title= %s, content= %s, published= %s WHERE id = %s RETURNING *; """,
     #                (post.title, post.content, post.published, str(id)))
     # updated_post = cursor.fetchone()
@@ -115,4 +105,4 @@ def update_post(id: int, post: Post, db: Session = Depends(get_db)):
     post_query.update(dict(post), synchronize_session=False)
     db.commit()
 
-    return {"msg": f"Post with id {id} updated", "data": new_post}
+    return new_post
