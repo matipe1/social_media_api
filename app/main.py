@@ -49,7 +49,7 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
     return new_post
 
 
-@app.get('/posts')
+@app.get('/posts', response_model=list[schemas.Post])
 def get_posts(db: Session = Depends(get_db)):
     # cursor.execute("""SELECT * FROM posts; """)
     # posts = cursor.fetchall()
@@ -59,7 +59,7 @@ def get_posts(db: Session = Depends(get_db)):
 
 
 
-@app.get('/posts/{id}', status_code=status.HTTP_200_OK)
+@app.get('/posts/{id}', status_code=status.HTTP_200_OK, response_model=schemas.Post)
 def get_post(id: int, db: Session = Depends(get_db)):
     # cursor.execute("""SELECT * from posts WHERE id = %s""", (str(id),))
     # post = cursor.fetchone()
@@ -89,7 +89,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
 
 
 
-@app.put('/posts/{id}', status_code=status.HTTP_200_OK)
+@app.put('/posts/{id}', status_code=status.HTTP_200_OK, response_model=schemas.Post)
 def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute("""UPDATE posts SET title= %s, content= %s, published= %s WHERE id = %s RETURNING *; """,
     #                (post.title, post.content, post.published, str(id)))

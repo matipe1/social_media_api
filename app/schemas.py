@@ -16,11 +16,9 @@ class PostCreate(PostBase):
     pass
 
 
-class Post(BaseModel):
-    id: int | None = None
-    title: str
-    content: str
-    published: bool
+class Post(PostBase):
+    id: int
+    created_at: datetime
 
     class Config:
         orm_mode: True
