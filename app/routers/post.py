@@ -41,7 +41,7 @@ def get_post(id: int, db: Session = Depends(get_db)):
 
     post = db.query(models.Post).filter(models.Post.id == id).first()
 
-    if post == None:
+    if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
     return post
@@ -74,7 +74,7 @@ def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)
     post_query = db.query(models.Post).filter(models.Post.id == id)
     new_post = post_query.first()
 
-    if new_post == None:
+    if not new_post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     
     post_query.update(dict(post), synchronize_session=False)
